@@ -3,69 +3,95 @@
 С помощью инструмента Sourcer был получен исходный код обработчика прерывания `08h`:
 
 ```asm
-020A:0746  E8 0070				call	sub_15
-020A:0749  06					push	es
-020A:074A  1E					push	ds
-020A:074B  50					push	ax
-020A:074C  52					push	dx
-020A:074D  B8 0040				mov	ax,40h
-020A:0750  8E D8				mov	ds,ax
-020A:0752  33 C0				xor	ax,ax
-020A:0754  8E C0				mov	es,ax
-020A:0756  FF 06 006C			inc	word ptr ds:[6Ch]
-020A:075A  75 04				jnz	loc_67
-020A:075C  FF 06 006E			inc	word ptr ds:[6Eh]
-020A:0760			loc_67:
-020A:0760  83 3E 006E 18		cmp	word ptr ds:[6Eh],18h
-020A:0765  75 15				jne	loc_68
-020A:0767  81 3E 006C 00B0		cmp	word ptr ds:[6Ch],0B0h
-020A:076D  75 0D				jne	loc_68
-020A:076F  A3 006E				mov	word ptr ds:[6Eh],ax
-020A:0772  A3 006C				mov	word ptr ds:[6Ch],ax
-020A:0775  C6 06 0070 01		mov	byte ptr ds:[70h],1
-020A:077A  0C 08				or	al,8
-020A:077C			loc_68:
-020A:077C  50					push	ax
-020A:077D  FE 0E 0040			dec	byte ptr ds:[40h]
-020A:0781  75 0B				jnz	loc_69
-020A:0783  80 26 003F F0		and	byte ptr ds:[3Fh],0F0h
-020A:0788  B0 0C				mov	al,0Ch
-020A:078A  BA 03F2				mov	dx,3F2h
-020A:078D  EE					out	dx,al
-020A:078E			loc_69:
-020A:078E  58					pop	ax
-020A:078F  F7 06 0314 0004		test	word ptr ds:[314h],4
-020A:0795  75 0C				jnz	loc_70
-020A:0797  9F					lahf
-020A:0798  86 E0				xchg	ah,al
-020A:079A  50					push	ax
-020A:079B  26: FF 1E 0070		call	dword ptr es:[70h]
-020A:07A0  EB 03				jmp	short loc_71
-020A:07A2  90					nop
-020A:07A3			loc_70:
-020A:07A3  CD 1C				int	1Ch
-020A:07A5			loc_71:
-020A:07A5  E8 0011				call	sub_15
-020A:07A8  B0 20				mov	al,20h
-020A:07AA  E6 20				out	20h,al
-020A:07AC  5A					pop	dx
-020A:07AD  58					pop	ax
-020A:07AE  1F					pop	ds
-020A:07AF  07					pop	es
-020A:07B0  E9 FE99				jmp	loc_50
+; Вызвать подпрограмму sub_15
+020A:0746 call sub_15
+; Сохранить значения регистров ES, DS, AX, DX
+020A:0749 push es
+020A:074A push ds
+020A:074B push ax
+020A:074C push dx
+; Поместить в регистр DS слово 0040h
+020A:074D mov ax, 0040h
+020A:0750 mov ds, ax
+; Поместить в регистр ES слово 0000h
+020A:0752 xor ax, ax
+020A:0754 mov es, ax
+; Инкрементировать младшее слово счётчика таймера
+020A:0756 inc word ptr ds:[006Ch]
+020A:075A jnz loc_67
+; Инкрементировать старшее слово счётчика таймера 
+020A:075C inc word ptr ds:[006Eh]
+020A:0760 loc_67:
+; Старшее слово равно 0018h?
+020A:0760 cmp word ptr ds:[006Eh], 0018h
+020A:0765 jne loc_68
+; Младшее слово равно 00B0h?
+020A:0767 cmp word ptr ds:[006Ch], 00B0h
+020A:076D jne loc_68
+; Обнулить счётчик таймера
+020A:076F mov word ptr ds:[006Eh], ax
+020A:0772 mov word ptr ds:[006Ch], ax
+; Установить флаг прошествия суток
+020A:0775 mov byte ptr ds:[0070h], 1
+; Поместить в регистр AX слово 0008h
+020A:077A or al, 08h
+020A:077C loc_68:
+; Сохранить значение регистра AX
+020A:077C push ax
+; Декрементировать счётчик отключения приводов дисковода
+020A:077D dec byte ptr ds:[0040h]
+020A:0781 jnz loc_69
+; Сбросить флаги работы приводов дисковода
+020A:0783 and byte ptr ds:[003Fh], F0h
+; Послать команду остановки приводов в порт контроллера дисковода
+020A:0788 mov al, 0Ch
+020A:078A mov dx, 03F2h
+020A:078D out dx, al
+020A:078E loc_69:
+; Восстановить значение регистра AX
+020A:078E pop ax
+; Установлен PF?
+020A:078F test word ptr ds:[0314h], 0004h
+020A:0795 jnz loc_70
+; Сохранить младший байт регистра FLAGS в AH
+020A:0797 lahf
+; Поменять местами значения байтов регистра AX
+020A:0798 xchg ah, al
+; Сохранить значение регистра AX
+020A:079A push ax
+; Косвенно вызвать прерывание 1Ch
+020A:079B call dword ptr es:[0070h]
+020A:07A0 jmp short loc_71
+020A:07A2 nop
+020A:07A3 loc_70:
+; Вызвать прерывание 1Ch
+020A:07A3 int 1Ch
+020A:07A5 loc_71:
+; Вызвать подпрограмму sub_15
+020A:07A5 call sub_15
+; Послать команду сброса в порт контроллера прерываний
+020A:07A8 mov al, 20h
+020A:07AA out 20h, al
+; Восстановить значения регистров DX, AX, DS, ES
+020A:07AC pop dx
+020A:07AD pop ax
+020A:07AE pop ds
+020A:07AF pop es
+020A:07B0 jmp loc_50
 ```
 
 Метка `loc_50` здесь отсылает к команде `iret`:
 
 ```asm
-020A:064C			loc_50:
-020A:064C  1E					push	ds
-020A:064D  50					push	ax
+020A:064C loc_50:
+020A:064C push ds
+020A:064D push ax
 ...
-020A:06AA  58					pop	ax
-020A:06AB  1F					pop	ds
-020A:06AC  CF					iret
-				sub_10		endp
+020A:06AA pop ax
+020A:06AB pop ds
+; Вернуться из обработчика прерывания
+020A:06AC iret
+sub_10 endp
 ```
 
 Также был получен исходный код подпрограммы `sub_15`:
@@ -97,6 +123,7 @@ sub_15 proc near
 020A:07D5 cli
 020A:07D6 jmp short loc_72
 020A:07D8 loc_74:
+; Вернуться из подпрограммы
 020A:07D8 retn
 sub_15 endp
 ```
