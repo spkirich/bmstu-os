@@ -1,8 +1,8 @@
-# Дизассемблирование восьмого прерывания
+# Операционные системы. Лабораторная работа 01
 
-Листинг восьмого прерывания:
+С помощью инструмента Sourcer был получен исходный код обработчика прерывания `08h`:
 
-```
+```asm
 020A:0746  E8 0070				call	sub_15			; (07B9)
 020A:0749  06					push	es
 020A:074A  1E					push	ds
@@ -56,72 +56,22 @@
 020A:07B0  E9 FE99				jmp	loc_50			; (064C)
 ```
 
-Метка `loc_50` отсылает к команде `iret`:
+Метка `loc_50` здесь отсылает к команде `iret`:
 
-```
+```asm
 020A:064C			loc_50:
 020A:064C  1E					push	ds
 020A:064D  50					push	ax
-020A:064E  B8			data_171	db	0B8h
-020A:064F  40					inc	ax
-020A:0650  00 8E F7D8				add	[bp-828h],cl
-020A:0654  06					push	es
-020A:0655  14 03				adc	al,3
-020A:0657  00 24				add	[si],ah
-020A:0659  75 4F				jnz	loc_59			; Jump if not zero
-020A:065B  55					push	bp
-020A:065C  8B EC				mov	bp,sp
-020A:065E  8B 46 0A				mov	ax,[bp+0Ah]
-020A:0661  5D					pop	bp
-020A:0662  A9 0100				test	ax,100h
-020A:0665  75 43				jnz	loc_59			; Jump if not zero
-020A:0667  A9 0200				test	ax,200h
-020A:066A  74 22				jz	loc_55			; Jump if zero
-020A:066C  F0> 81 0E 0314 0200	           lock	or	word ptr ds:[314h],200h	; (ss:0314=0BE00h)
-020A:0673  F7 06 0314 0003			test	word ptr ds:[314h],3	; (ss:0314=0BE00h)
-020A:0679  75 2F				jnz	loc_59			; Jump if not zero
-020A:067B			loc_52:
-020A:067B  86 E0				xchg	ah,al
-020A:067D  FC					cld				; Clear direction
-020A:067E  A8 04				test	al,4
-020A:0680  75 25				jnz	loc_58			; Jump if not zero
-020A:0682			loc_53:
-020A:0682  A8 08				test	al,8
-020A:0684  75 11				jnz	loc_56			; Jump if not zero
-020A:0686  70 19				jo	loc_57			; Jump if overflow=1
-020A:0688			loc_54:
-020A:0688  9E					sahf				; Store ah into flags
-020A:0689  58					pop	ax
-020A:068A  1F					pop	ds
-020A:068B  CA 0002				retf	2			; Return far
-020A:068E			loc_55:
-020A:068E  F0> 81 26 0314 FDFF	           lock	and	word ptr ds:[314h],0FDFFh	; (D840:0314=0F775h)
-020A:0695  EB E4				jmp	short loc_52		; (067B)
-020A:0697			loc_56:
-020A:0697  70 EF				jo	loc_54			; Jump if overflow=1
-020A:0699  50					push	ax
-020A:069A  B0 7F				mov	al,7Fh
-020A:069C  04 02				add	al,2
-020A:069E  58					pop	ax
-020A:069F  EB E7				jmp	short loc_54		; (0688)
-020A:06A1			loc_57:
-020A:06A1  50					push	ax
-020A:06A2  32 C0				xor	al,al			; Zero register
-020A:06A4  58					pop	ax
-020A:06A5  EB E1				jmp	short loc_54		; (0688)
-020A:06A7			loc_58:
-020A:06A7  FD					std				; Set direction flag
-020A:06A8  EB D8				jmp	short loc_53		; (0682)
-020A:06AA			loc_59:
+...
 020A:06AA  58					pop	ax
 020A:06AB  1F					pop	ds
 020A:06AC  CF					iret				; Interrupt return
 				sub_10		endp
 ```
 
-Листинг подпрограммы `sub_15`:
+Также был получен исходный код подпрограммы `sub_15`:
 
-```
+```asm
 				sub_15		proc	near
 020A:07B9  1E					push	ds
 020A:07BA  50					push	ax
@@ -143,3 +93,11 @@
 020A:07D8  C3					retn
 				sub_15		endp
 ```
+
+По исходному коду обработчика прерывания `08h` была составлена схема его алгоритма:
+
+![Рисунок 1. Схема алгоритма обработчика прерывания `08h`](img/fig-01.png)
+
+Также была составлена схема алгоритма подпрограммы `sub_15`:
+
+![Рисунок 2. Схема алгоритма подпрограммы `sub_15`](img/fig-02.png)
