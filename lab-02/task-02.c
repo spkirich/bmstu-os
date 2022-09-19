@@ -1,68 +1,86 @@
 #include <stdio.h>
-
 #include <stdlib.h>
-#include <unistd.h>
-
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
+
+#define CHILD_COUNT 3
 
 /*!
- * Код процесса-предка
+ * Код родительского процесса
+ *
+ * \param children - массив идентификаторов дочерних процессов.
+ * \param count - количество дочерних процессов.
  */
 
-void parent(int child1_pid, int child2_pid)
+void parent(pid_t *children, size_t count)
 {
-    int stat_loc;
-    pid_t child_pid = wait(&stat_loc);
+    printf("I am %d; my group is %d; ",
+        getpid(), getpgrp());
 
-    printf("My child %d has finished ", child_pid);
+    if (count == 0)
+        printf("I have no children.\n");
 
-    if (WIFEXITED(stat_loc))
-        printf("with code %d.\n", WEXITSTATUS(stat_loc));
+    else
+    {
+        printf("my children are ");
+
+        for (size_t i = 0; i < count - 1; i++)
+            printf("%d, ", children[i]);
+
+        printf("%d.\n", children[count - 1]);
+    }
+
+    pid_t child;
+    int stat;
+
+    child = wait(&stat);
+    printf("My child %d has finished ", child);
+
+    if (WIFEXITED(stat))
+        printf("with exit code %d.\n", WEXITSTATUS(stat));
 
     else
         printf("abnormally.\n");
 }
 
 /*!
- * Код процесса-потомка
+ * Код дочернего процесса
  */
 
 void child()
 {
-    printf("I am %d, my group is %d, my parent is %d.\n",
+    printf("I am %d; my group is %d; my parent is %d.\n",
+        getpid(), getpgrp(), getppid());
+
+    sleep(1);
+
+    printf("I am %d; my group is %d; my parent is %d.\n",
         getpid(), getpgrp(), getppid());
 }
 
 int main()
 {
-    int child1_pid;
+    int children[CHILD_COUNT];
 
-    if ((child1_pid = fork()) == -1)
+    for (size_t i = 0; i < CHILD_COUNT; i++)
     {
-        perror("Failed to fork");
-        exit(EXIT_FAILURE);
-    }
-
-    else if (child1_pid == 0)
-        child();
-
-    else
-    {
-        int child2_pid;
-
-        if ((child2_pid = fork()) == -1)
+        if ((children[i] = fork()) == -1)
         {
-            perror("Failed to fork!");
-            exit(EXIT_FAILURE);
+            perror("Failed to fork");
+            exit(1);
         }
 
-        else if (child2_pid == 0)
+        // Дочерний процесс
+        else if (children[i] == 0)
+        {
             child();
-
-        else
-            parent(child1_pid, child2_pid);
+            exit(0);
+        }
     }
+
+    // Родительский процесс
+    parent(children, CHILD_COUNT);
 
     return 0;
 }
