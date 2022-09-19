@@ -1,6 +1,8 @@
-.PHONY: clean
+.PHONY: all clean
 
-task-01: task-01.c
+all: task-01 task-02
+
+task-%: task-%.c
 	$(CC) $< -o out/$@
 
 clean:
