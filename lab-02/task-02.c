@@ -29,19 +29,23 @@ void parent(pid_t *children, size_t count)
             printf("%d, ", children[i]);
 
         printf("%d.\n", children[count - 1]);
+
+        int stat;
+
+        for (size_t i = 0; i < count; i++)
+        {
+            // Ждём дочерний процесс
+            pid_t child = wait(&stat);
+
+            printf("My child %d has finished ", child);
+
+            if (WIFEXITED(stat))
+                printf("with exit code %d.\n", WEXITSTATUS(stat));
+
+            else
+                printf("abnormally.\n");
+        }
     }
-
-    pid_t child;
-    int stat;
-
-    child = wait(&stat);
-    printf("My child %d has finished ", child);
-
-    if (WIFEXITED(stat))
-        printf("with exit code %d.\n", WEXITSTATUS(stat));
-
-    else
-        printf("abnormally.\n");
 }
 
 /*!
@@ -54,9 +58,6 @@ void child()
         getpid(), getpgrp(), getppid());
 
     sleep(1);
-
-    printf("I am %d; my group is %d; my parent is %d.\n",
-        getpid(), getpgrp(), getppid());
 }
 
 int main()

@@ -1,74 +1,95 @@
 #include <stdio.h>
-
 #include <stdlib.h>
-#include <unistd.h>
-
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
+
+#define MAX_CHILD_COUNT 8
 
 /*!
- * Код процесса-предка
+ * Код родительского процесса
+ *
+ * \param children - массив идентификаторов дочерних процессов.
+ * \param count - количество дочерних процессов.
  */
 
-void parent(int child1_pid, int child2_pid)
+void parent(pid_t *children, size_t count)
 {
-    printf("I am %d, my group is %d, my children are %d and %d.\n",
-            getpid(), getpgrp(), child1_pid, child2_pid);
+    printf("I am %d; my group is %d; ",
+        getpid(), getpgrp());
 
-    int stat_loc;
-
-    pid_t child_pid = wait(&stat_loc);
-
-    printf("My child %d has finished ", child_pid);
-
-    if (WIFEXITED(stat_loc))
-        printf("with code %d.\n", WEXITSTATUS(stat_loc));
+    if (count == 0)
+        printf("I have no children.\n");
 
     else
-        printf("abnormally.\n");
+    {
+        printf("my children are ");
+
+        for (size_t i = 0; i < count - 1; i++)
+            printf("%d, ", children[i]);
+
+        printf("%d.\n", children[count - 1]);
+
+        int stat;
+
+        for (size_t i = 0; i < count; i++)
+        {
+            // Ждём дочерний процесс
+            pid_t child = wait(&stat);
+
+            printf("My child %d has finished ", child);
+
+            if (WIFEXITED(stat))
+                printf("with exit code %d.\n", WEXITSTATUS(stat));
+
+            else
+                printf("abnormally.\n");
+        }
+    }
 }
 
 /*!
- * Код процесса-потомка
+ * Код дочернего процесса
+ *
+ * \param file - имя исполняемого файла
  */
 
-void child()
+void child(const char *file)
 {
-    printf("I am %d, my group is %d, my parent is %d.\n",
+    printf("I am %d; my group is %d; my parent is %d.\n",
         getpid(), getpgrp(), getppid());
 
-    execl("/bin/ls", "ls", "-al", 0);
+    execlp(file, file, 0);
 }
 
-int main()
+int main(int argc, const char **argv)
 {
-    int child1_pid;
-
-    if ((child1_pid = fork()) == -1)
+    if (argc > MAX_CHILD_COUNT)
     {
-        perror("Failed to fork");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Too many arguments!\n");
+        exit(1);
     }
 
-    else if (child1_pid == 0)
-        child();
+    int children[MAX_CHILD_COUNT];
 
-    else
+    for (size_t i = 0; i < argc - 1; i++)
     {
-        int child2_pid;
-
-        if ((child2_pid = fork()) == -1)
+        if ((children[i] = fork()) == -1)
         {
-            perror("Failed to fork!");
-            exit(EXIT_FAILURE);
+            perror("Failed to fork");
+            exit(1);
         }
 
-        else if (child2_pid == 0)
-            child();
-
-        else
-            parent(child1_pid, child2_pid);
+        // Дочерний процесс
+        else if (children[i] == 0)
+        {
+            child(argv[i + 1]);
+            exit(0);
+        }
     }
+
+    // Родительский процесс
+    parent(children, argc - 1);
 
     return 0;
 }
