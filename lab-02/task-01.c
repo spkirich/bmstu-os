@@ -12,7 +12,7 @@
  * \param count - количество дочерних процессов.
  */
 
-void parent(pid_t *children, size_t count)
+void parent(const pid_t *children, size_t count)
 {
     printf("I am %d; my group is %d; ",
         getpid(), getpgrp());
