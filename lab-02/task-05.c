@@ -1,203 +1,123 @@
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define MAX_CHILD_COUNT 8
+volatile int flag = 0;
 
-/*!
- * Вывести сообщение из канала в терминал
- *
- * \param fd - дескриптор программного канала.
- */
-
-void echo(int fd)
+void handler(int sig)
 {
-    char buf;
+    flag = 1;
+}
 
-    while (1)
+int main()
+{
+    int child_pid[2], fd[2];
+
+    signal(SIGUSR1, handler);
+
+    if (pipe(fd) == -1)
     {
-        // Читаем из канала
-        int count = read(fd, &buf, 1);
+        perror("Failed to pipe");
+        return 1;
+    }
 
-        if (count == -1)
+    for (size_t i = 0; i < 2; i++)
+    {
+        if ((child_pid[i] = fork()) == -1)
         {
-            perror("Failed to read");
-            exit(1);
+            perror("Failed to fork");
+            return 1;
         }
 
-        else if (count == 1)
+        else if (child_pid[i] == 0)
         {
-            if (buf)
-                putchar(buf);
-
-            else
+            if (close(fd[0]) == -1)
             {
-                putchar('\n');
-                break;
+                perror("Failed to close");
+                return 1;
             }
-        }
 
-        else break;
-    }
-}
+            printf("I am %d; my group is %d; my parent is %d.\n",
+                getpid(), getpgrp(), getppid());
 
-/*!
- * Обработать завершение дочернего процесса
- *
- * \param p_child - указатель на идентификатор дочернего процесса.
- */
+            while (!flag);
 
-void join(int *p_child)
-{
-    int stat;
-
-    // Ждём дочерний процесс
-    pid_t child = waitpid(*p_child, &stat, WNOHANG);
-
-    if (child == -1)
-    {
-        perror("Failed to wait");
-        exit(1);
-    }
-
-    if (child == *p_child)
-    {
-        printf("My child %d has finished ", child);
-
-        if (WIFEXITED(stat))
-            printf("with exit code %d.\n", WEXITSTATUS(stat));
-
-        else
-            printf("abnormally.\n");
-
-        *p_child = 0;
-    }
-}
-
-/*!
- * Код родительского процесса
- *
- * \param children - массив идентификаторов дочерних процессов.
- * \param count - количество дочерних процессов.
- * \param fd - дескриптор программного канала.
- */
-
-void parent(pid_t *children, size_t count, int fd)
-{
-    printf("I am %d; my group is %d; ",
-        getpid(), getpgrp());
-
-    if (count == 0)
-        printf("I have no children.\n");
-
-    else
-    {
-        printf("my children are ");
-
-        for (size_t i = 0; i < count - 1; i++)
-            printf("%d, ", children[i]);
-
-        printf("%d.\n", children[count - 1]);
-
-        int done;
-
-        do
-        {
-            echo(fd);
-            done = 1;
-
-            for (size_t i = 0; i < count; i++)
+            switch (i)
             {
-                if (children[i])
+                case 0:
                 {
-                    join(&children[i]);
-                    done = 0;
+                    char message[] = "Hello world!";
+
+                    if (write(fd[1], message, sizeof(message)) == -1)
+                    {
+                        perror("Failed to write");
+                        return 1;
+                    }
+
+                    return 0;
+                }
+
+                case 1:
+                {
+                    char message[] = "Terve maailma!";
+
+                    if (write(fd[1], message, sizeof(message)) == -1)
+                    {
+                        perror("Failed to write");
+                        return 1;
+                    }
+
+                    return 0;
                 }
             }
         }
-        while (!done);
     }
-}
 
-int caught = 0;
-
-/*!
- * Обработчик сигнала
- *
- * \param signal - номер сигнала.
- */
-
-void handler(int signal)
-{
-    caught = 1;
-}
-
-/*!
- * Код дочернего процесса
- *
- * \param fd - дескриптор программного канала.
- * \param message - содержимое сообщения.
- */
-
-void child(int fd, const char *message)
-{
-    printf("I am %d; my group is %d; my parent is %d.\n",
-        getpid(), getpgrp(), getppid());
-
-    while (!caught);
-
-    // Длина сообщения
-    size_t len = strlen(message) + 1;
-
-    if (write(fd, message, len) != len)
+    if (close(fd[1]) == -1)
     {
-        perror("Failed to write");
-        exit(1);
+        perror("Failed to close");
+        return 1;
     }
-}
 
-int main(int argc, const char **argv)
-{
-    if (argc > MAX_CHILD_COUNT)
+    printf("I am %d; my group is %d; ",
+        getpid(), getpgrp());
+
+    printf("my children are %d and %d\n",
+        child_pid[0], child_pid[1]);
+
+    char message[16];
+
+    if (read(fd[0], message, sizeof(message)) == -1)
     {
-        fprintf(stderr, "Too many arguments!\n");
-        exit(1);
+        perror("Failed to read");
+        return 1;
     }
 
-    int children[MAX_CHILD_COUNT], fd[2];
+    printf("%s\n", message);
 
-    pipe(fd);
-
-    // Обработчик сигнала
-    signal(SIGTERM, handler);
-
-    for (size_t i = 0; i < argc - 1; i++)
+    if (read(fd[0], message, sizeof(message)) == -1)
     {
-        if ((children[i] = fork()) == -1)
-        {
-            perror("Failed to fork");
-            exit(1);
-        }
-
-        else if (children[i] == 0)
-        {
-            close(fd[0]);
-
-            // Дочерний процесс
-            child(fd[1], argv[i + 1]);
-
-            exit(0);
-        }
+        perror("Failed to read");
+        return 1;
     }
 
-    close(fd[1]);
+    printf("%s\n", message);
 
-    // Родительский процесс
-    parent(children, argc - 1, fd[0]);
+    int stat;
+
+    for (size_t i = 0; i < 2; i++)
+    {
+        pid_t child = wait(&stat);
+
+        printf("My child %d has finished ", child);
+
+        if (WIFEXITED(stat))
+            printf("with return code %d.\n", WEXITSTATUS(stat));
+
+        else
+            printf("abnormally.\n");
+    }
 
     return 0;
 }
