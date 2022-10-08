@@ -1,73 +1,37 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
 #include <unistd.h>
-
-#define CHILD_COUNT 3
-
-/*!
- * Код родительского процесса
- *
- * \param children - массив идентификаторов дочерних процессов.
- * \param count - количество дочерних процессов.
- */
-
-void parent(const pid_t *children, size_t count)
-{
-    printf("I am %d; my group is %d; ",
-        getpid(), getpgrp());
-
-    if (count == 0)
-        printf("I have no children.\n");
-
-    else
-    {
-        printf("my children are ");
-
-        for (size_t i = 0; i < count - 1; i++)
-            printf("%d, ", children[i]);
-
-        printf("%d.\n", children[count - 1]);
-    }
-}
-
-/*!
- * Код дочернего процесса
- */
-
-void child()
-{
-    printf("I am %d; my group is %d; my parent is %d.\n",
-        getpid(), getpgrp(), getppid());
-
-    sleep(1);
-
-    printf("I am %d; my group is %d; my parent is %d.\n",
-        getpid(), getpgrp(), getppid());
-}
 
 int main()
 {
-    int children[CHILD_COUNT];
+    int child_pid[2];
 
-    for (size_t i = 0; i < CHILD_COUNT; i++)
+    for (size_t i = 0; i < 2; i++)
     {
-        if ((children[i] = fork()) == -1)
+        if ((child_pid[i] = fork()) == -1)
         {
             perror("Failed to fork");
-            exit(1);
+            return 1;
         }
 
-        // Дочерний процесс
-        else if (children[i] == 0)
+        else if (child_pid[i] == 0)
         {
-            child();
-            exit(0);
+            printf("I am %d; my group is %d; my parent is %d.\n",
+                getpid(), getpgrp(), getppid());
+
+            sleep(1);
+
+            printf("I am %d; my group is %d; my parent is %d.\n",
+                getpid(), getpgrp(), getppid());
+
+            return 0;
         }
     }
 
-    // Родительский процесс
-    parent(children, CHILD_COUNT);
+    printf("I am %d; my group is %d; ",
+        getpid(), getpgrp());
+
+    printf("my children are %d and %d\n",
+        child_pid[0], child_pid[1]);
 
     return 0;
 }
