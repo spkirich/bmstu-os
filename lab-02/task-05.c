@@ -19,7 +19,7 @@ int main()
     if (pipe(fd) == -1)
     {
         perror("Failed to pipe");
-        return 1;
+        exit(1);
     }
 
     for (size_t i = 0; i < 2; i++)
@@ -27,7 +27,7 @@ int main()
         if ((child_pid[i] = fork()) == -1)
         {
             perror("Failed to fork");
-            return 1;
+            exit(1);
         }
 
         else if (child_pid[i] == 0)
@@ -35,7 +35,7 @@ int main()
             if (close(fd[0]) == -1)
             {
                 perror("Failed to close");
-                return 1;
+                exit(1);
             }
 
             printf("I am %d; my group is %d; my parent is %d.\n",
@@ -52,7 +52,7 @@ int main()
                     if (write(fd[1], message, sizeof(message)) == -1)
                     {
                         perror("Failed to write");
-                        return 1;
+                        exit(1);
                     }
 
                     return 0;
@@ -65,7 +65,7 @@ int main()
                     if (write(fd[1], message, sizeof(message)) == -1)
                     {
                         perror("Failed to write");
-                        return 1;
+                        exit(1);
                     }
 
                     return 0;
@@ -77,7 +77,7 @@ int main()
     if (close(fd[1]) == -1)
     {
         perror("Failed to close");
-        return 1;
+        exit(1);
     }
 
     printf("I am %d; my group is %d; ",
@@ -91,7 +91,7 @@ int main()
     if (read(fd[0], message, sizeof(message)) == -1)
     {
         perror("Failed to read");
-        return 1;
+        exit(1);
     }
 
     printf("%s\n", message);
@@ -99,7 +99,7 @@ int main()
     if (read(fd[0], message, sizeof(message)) == -1)
     {
         perror("Failed to read");
-        return 1;
+        exit(1);
     }
 
     printf("%s\n", message);

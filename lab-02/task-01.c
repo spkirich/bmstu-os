@@ -10,7 +10,7 @@ int main()
         if ((child_pid[i] = fork()) == -1)
         {
             perror("Failed to fork");
-            return 1;
+            exit(1);
         }
 
         else if (child_pid[i] == 0)
