@@ -1,5 +1,6 @@
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -72,6 +73,12 @@ int main()
                 }
             }
         }
+
+        else
+        {
+            printf("I am %d; my group is %d; ", getpid(), getpgrp());
+            printf("my child is %d\n", child_pid[i]);
+        }
     }
 
     if (close(fd[1]) == -1)
@@ -79,12 +86,6 @@ int main()
         perror("Failed to close");
         exit(1);
     }
-
-    printf("I am %d; my group is %d; ",
-        getpid(), getpgrp());
-
-    printf("my children are %d and %d\n",
-        child_pid[0], child_pid[1]);
 
     char message[16];
 

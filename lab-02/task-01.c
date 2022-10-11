@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 int main()
@@ -25,13 +26,13 @@ int main()
 
             return 0;
         }
+
+        else
+        {
+            printf("I am %d; my group is %d; ", getpid(), getpgrp());
+            printf("my child is %d\n", child_pid[i]);
+        }
     }
-
-    printf("I am %d; my group is %d; ",
-        getpid(), getpgrp());
-
-    printf("my children are %d and %d\n",
-        child_pid[0], child_pid[1]);
 
     return 0;
 }
