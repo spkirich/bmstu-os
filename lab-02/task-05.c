@@ -1,6 +1,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -13,7 +14,8 @@ void handler(int sig)
 
 int main()
 {
-    int child_pid[2], fd[2];
+    pid_t child_pid[2];
+    int fd[2], stat;
 
     signal(SIGUSR1, handler);
 
@@ -23,7 +25,7 @@ int main()
         exit(1);
     }
 
-    for (size_t i = 0; i < 2; i++)
+    for (int i = 0; i < 2; i++)
     {
         if ((child_pid[i] = fork()) == -1)
         {
@@ -76,8 +78,11 @@ int main()
 
         else
         {
-            printf("I am %d; my group is %d; ", getpid(), getpgrp());
-            printf("my child is %d\n", child_pid[i]);
+            printf("I am %d; my group is %d; ",
+                getpid(), getpgrp());
+
+            printf("my child is %d.\n",
+                child_pid[i]);
         }
     }
 
@@ -105,19 +110,20 @@ int main()
 
     printf("%s\n", message);
 
-    int stat;
-
-    for (size_t i = 0; i < 2; i++)
+    for (int i = 0; i < 2; i++)
     {
-        pid_t child = wait(&stat);
+        pid_t child = waitpid(child_pid[i], &stat, 0);
 
-        printf("My child %d has finished ", child);
+        printf("My child %d has ", child);
 
         if (WIFEXITED(stat))
-            printf("with return code %d.\n", WEXITSTATUS(stat));
+            printf("finished normally with return code %d.\n", WEXITSTATUS(stat));
 
-        else
-            printf("abnormally.\n");
+        else if (WIFSIGNALED(stat))
+            printf("terminated, received signal %d.\n", WTERMSIG(stat));
+        
+        else if (WIFSTOPPED(stat))
+            printf("stopped, received signal %d.\n", WSTOPSIG(stat));
     }
 
     return 0;
