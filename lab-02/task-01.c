@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 int main()
 {
-    int child_pid[2];
+    pid_t child_pid[2];
 
-    for (size_t i = 0; i < 2; i++)
+    for (int i = 0; i < 2; i++)
     {
         if ((child_pid[i] = fork()) == -1)
         {
@@ -29,8 +30,11 @@ int main()
 
         else
         {
-            printf("I am %d; my group is %d; ", getpid(), getpgrp());
-            printf("my child is %d\n", child_pid[i]);
+            printf("I am %d; my group is %d; ",
+                getpid(), getpgrp());
+
+            printf("my child is %d\n",
+                child_pid[i]);
         }
     }
 
