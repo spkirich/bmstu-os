@@ -30,7 +30,7 @@ int main()
             printf("I am %d; my group is %d; ",
                 getpid(), getpgrp());
 
-            printf("my child is %d\n",
+            printf("my child is %d.\n",
                 child_pid[i]);
         }
     }
