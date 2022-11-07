@@ -1,12 +1,20 @@
+#include <asm-generic/errno-base.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syslog.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#define LOCKFILE "/var/run/daemon.pid"
+#define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+
+extern int lockfile(int);
 
 void daemonize(const char *cmd)
 {
@@ -77,4 +85,36 @@ void daemonize(const char *cmd)
         syslog(LOG_ERR, "Неверные дескрипторы %d, %d, %d", fd[0], fd[1], fd[2]);
         exit(1);
     }
+}
+
+int already_running()
+{
+    int fd;
+    char buf[16];
+
+    fd = open(LOCKFILE, O_RDWR | O_CREAT, LOCKMODE);
+
+    if (fd == -1)
+    {
+        syslog(LOG_ERR, "failed to open %s: %s", LOCKFILE, strerror(errno));
+        exit(1);
+    }
+
+    if (lockfile(fd) == -1)
+    {
+        if (errno == EACCES || errno == EAGAIN)
+        {
+            close(fd);
+            return 1;
+        }
+
+        syslog(LOG_ERR, "failed to lock %s: %s", LOCKFILE, strerror(errno));
+        exit(1);
+    }
+
+    ftruncate(fd, 0);
+    sprintf(buf, "%ld", (long)getpid());
+    write(fd, buf, strlen(buf) + 1);
+
+    return 0;
 }
