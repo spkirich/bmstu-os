@@ -16,8 +16,6 @@
 
 sigset_t mask;
 
-extern int lockfile(int);
-
 void daemonize(const char *cmd)
 {
     int fd[3];
@@ -87,6 +85,18 @@ void daemonize(const char *cmd)
         syslog(LOG_ERR, "Неверные дескрипторы %d, %d, %d", fd[0], fd[1], fd[2]);
         exit(1);
     }
+}
+
+int lockfile(int fd)
+{
+    struct flock fl;
+
+    fl.l_type = F_WRLCK;
+    fl.l_start = 0;
+    fl.l_whence = SEEK_SET;
+    fl.l_len = 0;
+
+    return fcntl(fd, F_SETLK, &fl);
 }
 
 int already_running()
