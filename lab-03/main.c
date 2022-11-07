@@ -131,11 +131,6 @@ int already_running()
     return 0;
 }
 
-void reread()
-{
-    // TODO
-}
-
 void *thr_fn(void *arg)
 {
     int err, signo;
@@ -154,7 +149,6 @@ void *thr_fn(void *arg)
         {
         case SIGHUP:
             syslog(LOG_INFO, "reading config file");
-            reread();
             break;
 
         case SIGTERM:
@@ -175,6 +169,9 @@ int main(int argc, char *argv[])
     pthread_t tid;
     char *cmd;
     struct sigaction sa;
+
+    time_t t;
+    struct tm tm;
 
     if ((cmd = strrchr(argv[0], '/')) == NULL)
         cmd = argv[0];
@@ -216,7 +213,14 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    // TODO
+    for (;;)
+    {
+        t = time(NULL);
+        tm = *localtime(&t);
 
-    exit(0);
+        syslog(LOG_INFO, "time is %02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+        sleep(1);
+    }
+
+    return 0;
 }
