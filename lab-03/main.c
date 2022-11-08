@@ -53,15 +53,6 @@ void daemonize(const char *cmd)
         exit(1);
     }
 
-    if ((pid = fork()) == -1)
-    {
-        perror("Failed to fork");
-        exit(1);
-    }
-
-    else if (pid != 0)
-        exit(0);
-
     if (chdir("/") == -1)
     {
         perror("Failed to chdir");
