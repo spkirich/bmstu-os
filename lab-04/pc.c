@@ -125,7 +125,7 @@ int main()
 {
     int perm = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
-    int shmid = shmget(101, 2 * sizeof(char *) + 25 * sizeof(char), IPC_CREAT | perm);
+    int shmid = shmget(IPC_PRIVATE, 2 * sizeof(char *) + 25 * sizeof(char), IPC_CREAT | perm);
 
     if (shmid == -1)
     {
@@ -147,7 +147,7 @@ int main()
     *produced = shm + 2 * sizeof(char *);
     *consumed = shm + 2 * sizeof(char *) + sizeof(char);
 
-    int semid = semget(10, 3, IPC_CREAT | perm);
+    int semid = semget(IPC_PRIVATE, 3, IPC_CREAT | perm);
 
     if (semid == -1)
     {
