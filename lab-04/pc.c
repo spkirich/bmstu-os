@@ -7,22 +7,29 @@
 #include <time.h>
 #include <unistd.h>
 
+#define SEMCE 0
+#define SEMCF 1
+#define SEMMX 2
+
+#define N 24
+
 struct sembuf producerLock[2] = {
-    {1, -1, 0},
-    {2, -1, 0},
+    {SEMCE, -1, 0},
+    {SEMMX, -1, 0},
 };
 
 struct sembuf producerRelease[2] = {
-    {0, 1, 0},
-    {2, 1, 0},
+    {SEMMX, +1, 0},
+    {SEMCF, +1, 0},
 };
 
-void producerRun(int producerId, char **ppProducedChar, int semid)
+void producerInitialize(char **produced)
 {
-    // Set a new random seed.
-    srand(time(NULL) + producerId);
+    **produced = 'a' - 1;
+}
 
-    // Sleep for a while.
+void producerRun(int producerId, char **produced, int semid)
+{
     sleep(rand() % 5 + 2);
 
     if (semop(semid, producerLock, 2) == -1)
@@ -31,8 +38,8 @@ void producerRun(int producerId, char **ppProducedChar, int semid)
         exit(1);
     }
 
-    char producedChar = *(*ppProducedChar)++;
-    **ppProducedChar = ++producedChar;
+    char producedChar = *(*produced)++;
+    **produced = ++producedChar;
 
     printf("Producer #%d put: %c\n", producerId, producedChar);
 
@@ -43,7 +50,7 @@ void producerRun(int producerId, char **ppProducedChar, int semid)
     }
 }
 
-void producerCreate(int producerId, char **ppProducedChar, int semid)
+void producerCreate(int producerId, char **produced, int semid)
 {
     pid_t producerPid;
 
@@ -55,26 +62,27 @@ void producerCreate(int producerId, char **ppProducedChar, int semid)
 
     else if (producerPid == 0)
     {
+        srand(time(NULL) + producerId);
+
         for (int i = 0; i < 8; i++)
-            producerRun(producerId, ppProducedChar, semid);
+            producerRun(producerId, produced, semid);
 
         exit(0);
     }
 }
 
 struct sembuf consumerLock[2] = {
-    {0, -1, 0},
-    {2, -1, 0},
+    {SEMCF, -1, 0},
+    {SEMMX, -1, 0},
 };
 
 struct sembuf consumerRelease[2] = {
-    {1, 1, 0},
-    {2, 1, 0},
+    {SEMMX, +1, 0},
+    {SEMCE, +1, 0},
 };
 
-void consumerRun(int consumerId, char **ppConsumedChar, int semid)
+void consumerRun(int consumerId, char **consumed, int semid)
 {
-    srand(time(NULL) + consumerId);
     sleep(rand() % 7 + 1);
 
     if (semop(semid, consumerLock, 2) == -1)
@@ -83,7 +91,7 @@ void consumerRun(int consumerId, char **ppConsumedChar, int semid)
         exit(1);
     }
 
-    printf("Consumer #%d got: %c\n", consumerId, *((*ppConsumedChar)++));
+    printf("Consumer #%d got: %c\n", consumerId, *((*consumed)++));
 
     if (semop(semid, consumerRelease, 2) == -1)
     {
@@ -92,7 +100,7 @@ void consumerRun(int consumerId, char **ppConsumedChar, int semid)
     }
 }
 
-void consumerCreate(int consumerId, char **ppConsumedChar, int semid)
+void consumerCreate(int consumerId, char **consumed, int semid)
 {
     pid_t consumerPid;
 
@@ -104,8 +112,10 @@ void consumerCreate(int consumerId, char **ppConsumedChar, int semid)
 
     if (consumerPid == 0)
     {
+        srand(time(NULL) + consumerId);
+
         for (int i = 0; i < 8; i++)
-            consumerRun(consumerId, ppConsumedChar, semid);
+            consumerRun(consumerId, consumed, semid);
 
         exit(0);
     }
@@ -113,65 +123,95 @@ void consumerCreate(int consumerId, char **ppConsumedChar, int semid)
 
 int main()
 {
-    int perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+    int perm = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
-    int shmid = shmget(101, 2 * sizeof(char *) + 25 * sizeof(char), IPC_CREAT | perms);
+    int shmid = shmget(101, 2 * sizeof(char *) + 25 * sizeof(char), IPC_CREAT | perm);
 
     if (shmid == -1)
-        perror("shmget"), exit(1);
+    {
+        perror("Failed to get shared memory");
+        exit(1);
+    }
 
-    void *pSharedMemory = shmat(shmid, 0, 0);
+    void *shm = shmat(shmid, 0, 0);
 
-    if (pSharedMemory == -1)
-        perror("shmat"), exit(1);
+    if (shm == (void *)-1)
+    {
+        perror("Failed to attach the shared memory");
+        exit(1);
+    }
 
-    char **ppProducedChar = pSharedMemory;
-    char **ppConsumedChar = pSharedMemory + sizeof(char *);
+    char **produced = shm;
+    char **consumed = shm + sizeof(char *);
 
-    *ppProducedChar = pSharedMemory + 2 * sizeof(char *);
-    *ppConsumedChar = pSharedMemory + 2 * sizeof(char *) + sizeof(char);
+    *produced = shm + 2 * sizeof(char *);
+    *consumed = shm + 2 * sizeof(char *) + sizeof(char);
 
-    **ppProducedChar = 'a' - 1;
-
-    int semid = semget(10, 3, IPC_CREAT | perms);
+    int semid = semget(10, 3, IPC_CREAT | perm);
 
     if (semid == -1)
-        perror("semget"), exit(1);
+    {
+        perror("Failed to get a semaphore set");
+        exit(1);
+    }
 
-    if (semctl(semid, 2, SETVAL, 1) == -1)
-        perror("semctl"), exit(1);
+    if (semctl(semid, SEMCF, SETVAL, 0) == -1)
+    {
+        perror("Failed to set the semaphore value");
+        exit(1);
+    }
 
-    if (semctl(semid, 0, SETVAL, 0) == -1)
-        perror("semctl"), exit(1);
+    if (semctl(semid, SEMCE, SETVAL, N) == -1)
+    {
+        perror("Failed to set the semaphore value");
+        exit(1);
+    }
 
-    if (semctl(semid, 1, SETVAL, 24) == -1)
-        perror("semctl"), exit(1);
+    if (semctl(semid, SEMMX, SETVAL, 1) == -1)
+    {
+        perror("Failed to set the semaphore value");
+        exit(1);
+    }
+
+    producerInitialize(produced);
 
     for (int producerId = 1; producerId < 4; producerId++)
-        producerCreate(producerId, ppProducedChar, semid);
+        producerCreate(producerId, produced, semid);
 
     for (int consumerId = 1; consumerId < 4; consumerId++)
-        consumerCreate(consumerId, ppConsumedChar, semid);
+        consumerCreate(consumerId, consumed, semid);
 
     for (int i = 0; i < 6; i++)
     {
         int stat;
 
         if (wait(&stat) == -1)
-            perror("wait"), exit(1);
+        {
+            perror("Failed to wait for a child");
+            exit(1);
+        }
 
         if (!WIFEXITED(stat))
-            printf("A child has terminated abnormally!\n");
+            fprintf(stderr, "A child has terminated abnormally!\n");
     }
 
-    if (shmdt(pSharedMemory) == -1)
-        perror("shmdt"), exit(1);
+    if (shmdt(shm) == -1)
+    {
+        perror("Failed to detach the shared memory");
+        exit(1);
+    }
 
     if (shmctl(shmid, IPC_RMID, NULL) == -1)
-        perror("shmctl"), exit(1);
+    {
+        perror("Failed to remove the shared memory identifier");
+        exit(1);
+    }
 
     if (semctl(semid, 0, IPC_RMID) == -1)
-        perror("semctl"), exit(1);
+    {
+        perror("Failed to remove the semaphore set identifier");
+        exit(1);
+    }
 
     return 0;
 }
