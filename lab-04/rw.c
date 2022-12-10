@@ -7,27 +7,32 @@
 #include <time.h>
 #include <unistd.h>
 
-#define SEMRE 0
-#define SEMRC 1
-#define SEMWE 2
-#define SEMWC 3
-#define SEMMX 4
+#define SEM_R_WAITIN 0
+#define SEM_R_ACTIVE 1
+#define SEM_W_WAITIN 2
+#define SEM_W_UNLOCK 3
 
 struct sembuf readerStart[5] = {
-    {SEMWE, 0, 0}, {SEMRE, +1, 0}, {SEMWC, 0, 0}, {SEMRC, +1, 0}, {SEMRE, -1, 0},
+    {SEM_R_WAITIN, +1, 0},
+    {SEM_W_UNLOCK,  0, 0},
+    {SEM_W_WAITIN,  0, 0},
+    {SEM_R_ACTIVE, +1, 0},
+    {SEM_R_WAITIN, -1, 0},
 };
 
 struct sembuf readerStop[1] = {
-    {SEMRC, -1, 0},
+    {SEM_R_ACTIVE, -1, 0},
 };
 
-struct sembuf writerStart[6] = {
-    {SEMWC, +1, 0}, {SEMRC, 0, 0}, {SEMWE, 0, 0}, {SEMWE, +1, 0}, {SEMWC, -1, 0}, {SEMMX, -1, 0},
+struct sembuf writerStart[4] = {
+    {SEM_W_WAITIN, +1, 0},
+    {SEM_R_ACTIVE,  0, 0},
+    {SEM_W_UNLOCK, -1, 0},
+    {SEM_W_WAITIN, -1, 0},
 };
 
-struct sembuf writerStop[2] = {
-    {SEMWE, -1, 0},
-    {SEMMX, +1, 0},
+struct sembuf writerStop[1] = {
+    {SEM_W_UNLOCK, +1, 0},
 };
 
 void readerRun(int readerId, int *shm, int semid)
@@ -62,7 +67,7 @@ void writerRun(int writerId, int *shm, int semid)
     {
         sleep(rand() % 3 + 1);
 
-        if (semop(semid, writerStart, 6) == -1)
+        if (semop(semid, writerStart, 4) == -1)
         {
             perror("Writer failed to start");
             exit(1);
@@ -70,7 +75,7 @@ void writerRun(int writerId, int *shm, int semid)
 
         printf("Writer #%d put: %2d\n", writerId, ++(*shm));
 
-        if (semop(semid, writerStop, 2) == -1)
+        if (semop(semid, writerStop, 1) == -1)
         {
             perror("Writer failed to stop");
             exit(1);
@@ -98,7 +103,7 @@ int main()
         exit(1);
     }
 
-    int semid = semget(IPC_PRIVATE, 5, IPC_CREAT | perm);
+    int semid = semget(IPC_PRIVATE, 4, IPC_CREAT | perm);
 
     if (semid == -1)
     {
@@ -106,31 +111,25 @@ int main()
         exit(1);
     }
 
-    if (semctl(semid, 0, SETVAL, 0) == -1)
+    if (semctl(semid, SEM_R_WAITIN, SETVAL, 0) == -1)
     {
         perror("Failed to set the semaphore value");
         exit(1);
     }
 
-    if (semctl(semid, 1, SETVAL, 0) == -1)
+    if (semctl(semid, SEM_R_ACTIVE, SETVAL, 0) == -1)
     {
         perror("Failed to set the semaphore value");
         exit(1);
     }
 
-    if (semctl(semid, 2, SETVAL, 0) == -1)
+    if (semctl(semid, SEM_W_WAITIN, SETVAL, 0) == -1)
     {
         perror("Failed to set the semaphore value");
         exit(1);
     }
 
-    if (semctl(semid, 3, SETVAL, 0) == -1)
-    {
-        perror("Failed to set the semaphore value");
-        exit(1);
-    }
-
-    if (semctl(semid, 4, SETVAL, 1) == -1)
+    if (semctl(semid, SEM_W_UNLOCK, SETVAL, 1) == -1)
     {
         perror("Failed to set the semaphore value");
         exit(1);
